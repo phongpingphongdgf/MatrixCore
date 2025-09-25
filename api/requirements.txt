@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-multipart   # для UploadFile/form-data
+pypdf              # разбор PDF
+pytest             # автотесты
+httpx              # нужен TestClient внутри FastAPI-тестов
