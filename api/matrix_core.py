@@ -1,6 +1,6 @@
 # ============================
-# matrix_core.py  (core: write+read, autosave, limits)
-# VERSION: 0.4.3
+# api/matrix_core.py
+# VERSION: 0.4.7
 # ============================
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import threading
 
 # ---- versioning ----
 __app_name__ = "Matrix"
-__version__ = "0.4.3"
+__version__ = "0.4.7"
 
 # ---- limits (configurable) ----
 MAX_STRUCTURE_UNITS = 256  # hard cap per LogicUnit chain length
@@ -107,7 +107,7 @@ class StructureUnit:
     """One folding level. Maintains two mirrored tables A & B and per-cell counters.
 
     A (write/search):  *sorted* list of (prim, sec, pair_index) for determinism/scan
-                         + primary/secondary analytics (groups with hit counters)
+                        + primary/secondary analytics (groups with hit counters)
     B (read):          append-only list  pair_index -> (prim, sec)
     Flags:             for each pair_index we store whether prim/sec are *pairs* of prev level.
 
@@ -388,8 +388,16 @@ class MatrixCore:
         prim, sec = su.pair_index_map[idx]
         pflag = su.prim_is_pair[idx]
         sflag = su.sec_is_pair[idx]
-        left = self._expand_symbol(lu, level - 1, prim, pflag)
-        right = self._expand_symbol(lu, level - 1, sec, sflag)
+
+        left  = self._expand_symbol(lu, level - 1, prim, pflag)
+        right = self._expand_symbol(lu, level - 1, sec,  sflag)
+
+        # Перекрытие у соседних детей уровня (level-1) равно level.
+        # Но у базовой пары (оба флага False) перекрытия нет → trim = 0.
+        trim = level if (pflag and sflag) else 0
+
+        if left and right:
+            return left + right[trim:]
         return left + right
 
     def _expand_symbol(self, lu: LogicUnit, level: int, sym: int, is_pair: bool) -> List[int]:
@@ -402,8 +410,11 @@ class MatrixCore:
         if not self.word_logic.structur_chain or level < 0 or level >= len(self.word_logic.structur_chain):
             return {"codes": [], "text": ""}
         codes = self._expand_pair(self.word_logic, level, idx) if level >= 0 else [idx]
+        # спец-кейс n=1: (x,0) -> [x]
         if level == 0 and len(codes) == 2 and codes[1] == 0:
             codes = [codes[0]]
+        # игнорируем «нулевые» заполнители
+        codes = [c for c in codes if c != 0]
         chars = []
         for c in codes:
             try:
@@ -417,6 +428,7 @@ class MatrixCore:
         if not self.sent_logic.structur_chain:
             return {"tokens": [], "text": ""}
         tokens = self._expand_pair(self.sent_logic, level, idx) if level >= 0 else [idx]
+        tokens = [t for t in tokens if t != 0]  # убрать «заполнитель» нули
         words: List[str] = []
         for t in tokens:
             w_iv = self.sent_logic.iv_unpack(t)
@@ -428,6 +440,7 @@ class MatrixCore:
         if not self.msg_logic.structur_chain:
             return {"sentences": [], "text": ""}
         tokens = self._expand_pair(self.msg_logic, level, idx) if level >= 0 else [idx]
+        tokens = [t for t in tokens if t != 0]  # убрать «заполнитель» нули
         sents: List[str] = []
         for t in tokens:
             s_iv = self.msg_logic.iv_unpack(t)
@@ -483,8 +496,19 @@ class MatrixCore:
         return self.sent_logic.encode_unit(ivs)
 
     def reset(self) -> None:
-        """Hard reset all banks & stats"""
+        """Полный сброс банков/статистики до исходного состояния.
+        Сохраняем настройки автосейва и обратный вызов (если он был назначен из dashboard)."""
+        on_cb = self.on_block_processed
+        autosave_path = self.autosave_path
+        autosave_enabled = self.autosave_enabled
+
+        # Полная переинициализация
         self.__init__()
+
+        # Вернуть полезные «крючки»
+        self.on_block_processed = on_cb
+        self.autosave_path = autosave_path
+        self.autosave_enabled = autosave_enabled
 
 
 # default logger
