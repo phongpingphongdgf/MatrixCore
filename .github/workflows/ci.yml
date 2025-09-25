@@ -7,16 +7,28 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
+          cache: 'pip'            # кешируем пакеты pip для ускорения
+
       - name: Install deps
         run: |
           python -m pip install -U pip
-          pip install -r api/requirements.txt
+          python -m pip install -r api/requirements.txt
+
       - name: Run tests
-        env:
-          PYTHONPATH: ${{ github.workspace }}
         run: python -m pytest -q
+
+      # опционально: показать дерево файлов при отладке (временно)
+      # - name: Debug workspace
+      #   run: |
+      #     pwd; ls -la
+      #     python -c "import sys;print(sys.path)"
+
