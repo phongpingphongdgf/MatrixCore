@@ -1,6 +1,6 @@
 # ============================
 # matrix_core.py  (core: write+read, autosave, limits)
-# VERSION: 0.4.2
+# VERSION: 0.4.3
 # ============================
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import threading
 
 # ---- versioning ----
 __app_name__ = "Matrix"
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 
 # ---- limits (configurable) ----
 MAX_STRUCTURE_UNITS = 256  # hard cap per LogicUnit chain length
@@ -124,8 +124,7 @@ class StructureUnit:
 
         # --- A table (write/search): sorted triples ---
         self._a_sorted: List[Tuple[int, int, int]] = []  # (prim, sec, pair_index)
-        # TODO (post-MVP): replace A with dict {(prim, sec) -> pair_index} to avoid O(n) inserts.
-        # See: https://docs.python.org/3/library/bisect.html#performance-notes
+        # TODO (post-MVP): заменить A на dict {(prim, sec) -> pair_index} для O(1) вставок.
 
         # Primary/secondary analytics
         self.primary_groups: Dict[int, PrimaryGroup] = {}

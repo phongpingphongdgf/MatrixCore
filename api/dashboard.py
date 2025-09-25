@@ -1,6 +1,6 @@
 # ============================
 # dashboard.py  (FastAPI API only: write+read+tests+csv+pdf+limits)
-# VERSION surface comes from matrix_core
+# VERSION surface comes from matrix_core (now 0.4.3)
 # ============================
 from __future__ import annotations
 
@@ -179,6 +179,24 @@ async def api_decode_sentence(level: int, idx: int):
 @app.get("/api/decode/message")
 async def api_decode_message(level: int, idx: int):
     return CORE.decode_message_iv((level, idx))
+
+# ---- NEW: вариации, принимающие упакованный токен u64 ----
+def _unpack_token(token: int) -> tuple[int, int]:
+    level = (token >> 32) & 0xFFFFFFFF
+    idx = token & 0xFFFFFFFF
+    return int(level), int(idx)
+
+@app.get("/api/decode/word_token")
+async def api_decode_word_token(token: int = Query(..., ge=0)):
+    return CORE.decode_word_iv(_unpack_token(token))
+
+@app.get("/api/decode/sentence_token")
+async def api_decode_sentence_token(token: int = Query(..., ge=0)):
+    return CORE.decode_sentence_iv(_unpack_token(token))
+
+@app.get("/api/decode/message_token")
+async def api_decode_message_token(token: int = Query(..., ge=0)):
+    return CORE.decode_message_iv(_unpack_token(token))
 
 # ---------------- Test suite via API ----------------
 class TestReport:
